@@ -25,31 +25,32 @@
 package org.jraf.android.fire.app.main
 
 import android.databinding.DataBindingUtil
-import android.net.Uri
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
 import android.support.v7.app.AppCompatActivity
+import android.util.Log
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
-import com.google.android.exoplayer2.DefaultLoadControl
-import com.google.android.exoplayer2.ExoPlayerFactory
-import com.google.android.exoplayer2.SimpleExoPlayer
-import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
-import com.google.android.exoplayer2.source.ExtractorMediaSource
-import com.google.android.exoplayer2.source.LoopingMediaSource
-import com.google.android.exoplayer2.trackselection.AdaptiveVideoTrackSelection
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.util.Util
+import android.widget.AbsoluteLayout
 import org.jraf.android.fire.R
 import org.jraf.android.fire.databinding.MainBinding
 
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        private val TAG = AppCompatActivity::class.java.simpleName
+    }
+
+
     private lateinit var mBinding: MainBinding
-    private var mPlayer: SimpleExoPlayer? = null
+    private var mMediaPlayer: MediaPlayer? = null
+    private var mVideoWidth: Int? = null
+    private var mVideoHeight: Int? = null
+
+    private var surfaceView: SurfaceView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,45 +69,95 @@ class MainActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 or View.SYSTEM_UI_FLAG_LOW_PROFILE)
 
-        playVideo()
-    }
+        mBinding.root.viewTreeObserver.addOnGlobalLayoutListener {
+            val videoWidth = mVideoWidth
+            val videoHeight = mVideoHeight
+            if (videoWidth != null && videoHeight != null) adjustSurfaceView(videoWidth, videoHeight)
+        }
 
-    private fun playVideo() {
-        // 1. Create a default TrackSelector
-        val mainHandler = Handler()
-        val bandwidthMeter = DefaultBandwidthMeter()
-        val videoTrackSelectionFactory = AdaptiveVideoTrackSelection.Factory(bandwidthMeter)
-        val trackSelector = DefaultTrackSelector(mainHandler, videoTrackSelectionFactory)
-        val loadControl = DefaultLoadControl()
-
-        val player = ExoPlayerFactory.newSimpleInstance(this, trackSelector, loadControl)
-        mPlayer = player
-
-        mBinding.player.player = player
-
-        val dataSourceFactory = DefaultDataSourceFactory(this, Util.getUserAgent(this, "Fire"), bandwidthMeter)
-        val extractorsFactory = DefaultExtractorsFactory()
-        val videoUri = Uri.parse("https://dl.dropboxusercontent.com/u/9317624/fire2.mp4")
-        val videoSource = ExtractorMediaSource(videoUri, dataSourceFactory, extractorsFactory, null, null)
-
-        val loopingSource = LoopingMediaSource(videoSource)
-
-        player.prepare(loopingSource)
-        player.playWhenReady = true
+        surfaceView = SurfaceView(this)
+        surfaceView!!.holder.addCallback(mSurfaceViewCallback)
+        mBinding.root.addView(surfaceView)
     }
 
     override fun onPause() {
         super.onPause()
-        mPlayer?.playWhenReady = false
+        mMediaPlayer?.pause()
     }
 
     override fun onResume() {
         super.onPause()
-        mPlayer?.playWhenReady = true
+        mMediaPlayer?.start()
     }
 
     override fun onDestroy() {
-        mPlayer?.release()
+        mMediaPlayer?.release()
         super.onDestroy()
+    }
+
+    private val mSurfaceViewCallback = object : SurfaceHolder.Callback {
+        override fun surfaceCreated(holder: SurfaceHolder) {
+            playVideo(holder)
+        }
+
+        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        }
+
+        override fun surfaceDestroyed(holder: SurfaceHolder) {
+        }
+    }
+
+    private fun playVideo(holder: SurfaceHolder) {
+        val mediaPlayer = MediaPlayer()
+        mMediaPlayer = mediaPlayer
+        mediaPlayer.setDataSource("http://jraf.org/static/tmp/fire2.mp4")
+
+        mediaPlayer.setDisplay(holder)
+        mediaPlayer.prepare()
+        mediaPlayer.setOnVideoSizeChangedListener(mOnVideoSizeChangedListener)
+        mediaPlayer.start()
+
+        mediaPlayer.setOnCompletionListener { mp ->
+            Log.d(TAG, "Looping")
+            mp.release()
+
+            mBinding.root.removeAllViews()
+            surfaceView = SurfaceView(this)
+            surfaceView!!.holder.addCallback(mSurfaceViewCallback)
+            mBinding.root.addView(surfaceView)
+        }
+    }
+
+    private val mOnVideoSizeChangedListener = MediaPlayer.OnVideoSizeChangedListener { mp, videoWidth, videoHeight ->
+        Log.d(TAG, "videoWidth=$videoWidth videoHeight=$videoHeight")
+        mVideoWidth = videoWidth
+        mVideoHeight = videoHeight
+        adjustSurfaceView(videoWidth, videoHeight)
+    }
+
+    private fun adjustSurfaceView(videoWidth: Int, videoHeight: Int) {
+        val parent = mBinding.root
+        val parentWidth = parent.width
+        val parentHeight = parent.height
+
+        // Resize surface view according to the video's aspect ratio and by cropping
+        val xScale = parentWidth.toFloat() / videoWidth
+        val yScale = parentHeight.toFloat() / videoHeight
+        val scale = Math.max(xScale, yScale)
+
+        // Now get the dimensions of the video when scaled
+        val scaledWidth = scale * videoWidth
+        val scaledHeight = scale * videoHeight
+
+        // Center the resulting video
+        val x = (scaledWidth - parentWidth) / 2
+        val y = (scaledHeight - parentHeight) / 2
+
+        val layoutParams = surfaceView!!.layoutParams as AbsoluteLayout.LayoutParams
+        layoutParams.width = scaledWidth.toInt()
+        layoutParams.height = scaledHeight.toInt()
+        layoutParams.x = (-x).toInt()
+        layoutParams.y = (-y).toInt()
+        surfaceView!!.layoutParams = layoutParams
     }
 }

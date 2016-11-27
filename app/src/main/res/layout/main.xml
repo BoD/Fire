@@ -1,20 +1,12 @@
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     tools:context=".app.main.MainActivity">
 
-    <FrameLayout
+    <AbsoluteLayout
+        android:id="@+id/root"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fitsSystemWindows="false"
-        android:keepScreenOn="true">
-
-        <com.google.android.exoplayer2.ui.SimpleExoPlayerView
-            android:id="@+id/player"
-            android:layout_width="match_parent"
-            app:use_controller="false"
-            android:layout_height="match_parent"
-            app:resize_mode="fixed_height" />
-
-    </FrameLayout>
+        android:keepScreenOn="true"
+        tools:ignore="Deprecated" />
 </layout>

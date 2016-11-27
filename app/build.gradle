@@ -98,7 +98,6 @@ dependencies {
     annotationProcessor 'org.jraf:prefs-compiler:1.1.0'
     compile 'org.jraf:prefs:1.1.0'
     compile "org.jetbrains.kotlin:kotlin-stdlib:$versions.kotlin"
-    compile 'com.google.android.exoplayer:exoplayer:r2.0.4'
 
     // Necessary to have Kotlin and dataBinding at the same time
     kapt "com.android.databinding:compiler:$versions.androidGradlePlugin"
