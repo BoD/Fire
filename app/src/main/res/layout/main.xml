@@ -8,5 +8,31 @@
         android:layout_height="match_parent"
         android:fitsSystemWindows="false"
         android:keepScreenOn="true"
-        tools:ignore="Deprecated" />
+        tools:ignore="Deprecated">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                style="?android:attr/textAppearanceMedium"
+                android:id="@+id/txtDownloading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="@string/downloading" />
+
+            <ProgressBar
+                android:id="@+id/pgbDownloadProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="256dp"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/txtDownloading"
+                android:layout_centerInParent="true"
+                android:layout_marginTop="4dp"
+                android:max="100"
+                tools:progress="42" />
+
+        </RelativeLayout>
+    </AbsoluteLayout>
 </layout>

@@ -24,10 +24,18 @@
  */
 package org.jraf.android.fire.app.main
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.databinding.DataBindingUtil
 import android.media.MediaPlayer
+import android.net.Uri
+import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
+import android.support.annotation.WorkerThread
 import android.support.v7.app.AppCompatActivity
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -36,7 +44,10 @@ import android.view.WindowManager
 import android.widget.AbsoluteLayout
 import org.jraf.android.fire.R
 import org.jraf.android.fire.databinding.MainBinding
+import org.jraf.android.util.handler.HandlerUtil
 import org.jraf.android.util.log.Log
+import org.jraf.android.util.log.LogUtil
+import java.io.File
 
 
 class MainActivity : AppCompatActivity() {
@@ -44,8 +55,11 @@ class MainActivity : AppCompatActivity() {
     private var mMediaPlayer: MediaPlayer? = null
     private var mVideoWidth: Int? = null
     private var mVideoHeight: Int? = null
-
-    private var surfaceView: SurfaceView? = null
+    private var mSurfaceView: SurfaceView? = null
+    private val mVideoFile by lazy { File(externalCacheDir, "video.mp4") }
+    private val mDownloadManager by lazy { getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager }
+    private var mReceiverRegistered = false
+    private var mIsResumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,23 +84,133 @@ class MainActivity : AppCompatActivity() {
             if (videoWidth != null && videoHeight != null) adjustSurfaceView(videoWidth, videoHeight)
         }
 
-        surfaceView = SurfaceView(this)
-        surfaceView!!.holder.addCallback(mSurfaceViewCallback)
-        mBinding.root.addView(surfaceView)
+        Log.d("mVideoFile=$mVideoFile")
+        if (mVideoFile.exists()) {
+            startPlayback()
+        } else {
+            startDownload()
+        }
     }
 
-    override fun onPause() {
-        super.onPause()
-        mMediaPlayer?.pause()
+    private fun startDownload() {
+        // First check if a download is already ongoing
+        val query = DownloadManager.Query().setFilterByStatus(DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PENDING or DownloadManager.STATUS_PAUSED)
+        val cursor = mDownloadManager.query(query)
+        val downloadOngoing: Boolean
+        try {
+            downloadOngoing = cursor.count > 0
+        } finally {
+            cursor.close()
+        }
+        if (!downloadOngoing) {
+            val uri = Uri.parse("https://dl.dropboxusercontent.com/u/9317624/fire3.mp4")
+//            val uri = Uri.parse("https://dl.dropboxusercontent.com/u/9317624/test2.mp4")
+            val request = DownloadManager.Request(uri)
+            request.setTitle(getString(R.string.app_name))
+            request.setDescription(getString(R.string.downloadTitle))
+            request.setVisibleInDownloadsUi(true)
+            request.setDestinationUri(Uri.fromFile(mVideoFile))
+            mDownloadManager.enqueue(request)
+        }
+        registerReceiver(mDownloadBroadcastReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        mReceiverRegistered = true
+        updateDownloadProgressMonitor()
+    }
+
+
+    private fun updateDownloadProgressMonitor() {
+        val query = DownloadManager.Query().setFilterByStatus(DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PENDING or DownloadManager.STATUS_PAUSED)
+        val cursor = mDownloadManager.query(query)
+        val size: Long
+        val downloaded: Long
+        try {
+            if (!cursor.moveToFirst()) return
+            size = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+            downloaded = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+        } finally {
+            cursor.close()
+        }
+
+        // Start playback when X% of the file has been downloaded
+        val startPlaybackPercent = 15F
+
+        mBinding.pgbDownloadProgress.max = ((size / 1000L).toFloat() * (startPlaybackPercent / 100F)).toInt()
+        mBinding.pgbDownloadProgress.progress = (downloaded / 1000L).toInt()
+
+        val progressPercent = downloaded.toFloat() / size.toFloat() * 100F
+        if (progressPercent >= startPlaybackPercent) {
+            startPlayback()
+        } else {
+            HandlerUtil.getMainHandler().postDelayed({
+                if (mIsResumed) updateDownloadProgressMonitor()
+            }, 1000)
+        }
+    }
+
+    private val mDownloadBroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (DownloadManager.ACTION_DOWNLOAD_COMPLETE == intent.action) {
+                Log.d("Download complete")
+                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, 0)
+                // Do the work in a background thread because it does disk i/o
+                val result = goAsync()
+                object : AsyncTask<Unit, Unit, Unit>() {
+                    override fun doInBackground(vararg params: Unit) {
+                        handleDownloadComplete(downloadId)
+                        result.finish()
+                    }
+                }.execute()
+            }
+        }
+    }
+
+    @WorkerThread
+    private fun handleDownloadComplete(downloadId: Long) {
+        Log.d("downloadId=$downloadId")
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = mDownloadManager.query(query)
+        try {
+            cursor.moveToFirst()
+            val status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
+            Log.d("status=${LogUtil.getConstantName(DownloadManager::class.java, status, "STATUS")}")
+            val fileName = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_DESCRIPTION))
+            when (status) {
+                DownloadManager.STATUS_FAILED -> onFail(fileName)
+
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    val downloadedFilePath = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME))
+                    onSuccess(downloadedFilePath)
+                }
+            }
+        } finally {
+            cursor.close()
+        }
+    }
+
+    private fun onFail(fileName: String) {
+        Log.w("fileName=$fileName")
+        // TODO Error handling
+    }
+
+    private fun onSuccess(downloadedFilePath: String) {
+        Log.d("downloadedFilePath=$downloadedFilePath")
     }
 
     override fun onResume() {
-        super.onPause()
+        super.onResume()
+        mIsResumed = true
         mMediaPlayer?.start()
+    }
+
+    override fun onPause() {
+        mIsResumed = false
+        mMediaPlayer?.pause()
+        super.onPause()
     }
 
     override fun onDestroy() {
         mMediaPlayer?.release()
+        if (mReceiverRegistered) unregisterReceiver(mDownloadBroadcastReceiver)
         super.onDestroy()
     }
 
@@ -102,10 +226,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun startPlayback() {
+        mBinding.root.removeAllViews()
+        mSurfaceView = SurfaceView(this)
+        mSurfaceView!!.holder.addCallback(mSurfaceViewCallback)
+        mBinding.root.addView(mSurfaceView)
+    }
+
     private fun playVideo(holder: SurfaceHolder) {
         val mediaPlayer = MediaPlayer()
         mMediaPlayer = mediaPlayer
-        mediaPlayer.setDataSource("http://jraf.org/static/tmp/fire2.mp4")
+        mediaPlayer.setDataSource(mVideoFile.absolutePath)
 
         mediaPlayer.setDisplay(holder)
         mediaPlayer.prepare()
@@ -115,11 +246,7 @@ class MainActivity : AppCompatActivity() {
         mediaPlayer.setOnCompletionListener { mp ->
             Log.d("Looping")
             mp.release()
-
-            mBinding.root.removeAllViews()
-            surfaceView = SurfaceView(this)
-            surfaceView!!.holder.addCallback(mSurfaceViewCallback)
-            mBinding.root.addView(surfaceView)
+            startPlayback()
         }
     }
 
@@ -148,11 +275,12 @@ class MainActivity : AppCompatActivity() {
         val x = (scaledWidth - parentWidth) / 2
         val y = (scaledHeight - parentHeight) / 2
 
-        val layoutParams = surfaceView!!.layoutParams as AbsoluteLayout.LayoutParams
+        val layoutParams = mSurfaceView!!.layoutParams as AbsoluteLayout.LayoutParams
         layoutParams.width = scaledWidth.toInt()
         layoutParams.height = scaledHeight.toInt()
         layoutParams.x = (-x).toInt()
         layoutParams.y = (-y).toInt()
-        surfaceView!!.layoutParams = layoutParams
+        mSurfaceView!!.layoutParams = layoutParams
     }
 }
+
