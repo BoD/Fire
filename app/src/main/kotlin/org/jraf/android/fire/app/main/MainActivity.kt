@@ -29,7 +29,6 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
@@ -37,14 +36,10 @@ import android.view.WindowManager
 import android.widget.AbsoluteLayout
 import org.jraf.android.fire.R
 import org.jraf.android.fire.databinding.MainBinding
+import org.jraf.android.util.log.Log
 
 
 class MainActivity : AppCompatActivity() {
-    companion object {
-        private val TAG = AppCompatActivity::class.java.simpleName
-    }
-
-
     private lateinit var mBinding: MainBinding
     private var mMediaPlayer: MediaPlayer? = null
     private var mVideoWidth: Int? = null
@@ -118,7 +113,7 @@ class MainActivity : AppCompatActivity() {
         mediaPlayer.start()
 
         mediaPlayer.setOnCompletionListener { mp ->
-            Log.d(TAG, "Looping")
+            Log.d("Looping")
             mp.release()
 
             mBinding.root.removeAllViews()
@@ -129,7 +124,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val mOnVideoSizeChangedListener = MediaPlayer.OnVideoSizeChangedListener { mp, videoWidth, videoHeight ->
-        Log.d(TAG, "videoWidth=$videoWidth videoHeight=$videoHeight")
+        Log.d("videoWidth=$videoWidth videoHeight=$videoHeight")
         mVideoWidth = videoWidth
         mVideoHeight = videoHeight
         adjustSurfaceView(videoWidth, videoHeight)
