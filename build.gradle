@@ -10,8 +10,8 @@ buildscript {
     // Versions used across modules
     ext.versions = [:]
     ext.versions.with {
-        androidGradlePlugin = '2.3.0-alpha2'
-        kotlin = '1.0.5-2'
+        androidGradlePlugin = '2.3.0'
+        kotlin = '1.1.1'
         compileSdk = 25
         targetSdk = 25
         buildTools = '25.0.0'
@@ -25,9 +25,9 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:$versions.androidGradlePlugin"
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
-        classpath 'ca.rmen:lib-french-revolutionary-calendar:1.5.1'
-        classpath 'io.fabric.tools:gradle:1.22.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.14.0'
+        classpath 'ca.rmen:lib-french-revolutionary-calendar:1.5.2'
+        classpath 'io.fabric.tools:gradle:1.22.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$versions.kotlin"
     }
 }
@@ -64,6 +64,19 @@ subprojects {
 
 // Run './gradlew dependencyUpdates' to see new versions of dependencies
 apply plugin: 'com.github.ben-manes.versions'
+
+dependencyUpdates.resolutionStrategy = {
+    componentSelection { rules ->
+        rules.all { ComponentSelection selection ->
+            boolean rejected = ['alpha', 'beta', 'rc'].any { qualifier ->
+                selection.candidate.version ==~ /.*-${qualifier}.*/
+            }
+            if (rejected) {
+                selection.reject('Release candidate')
+            }
+        }
+    }
+}
 
 // Returns the name of the current git branch
 def gitBranch() {
