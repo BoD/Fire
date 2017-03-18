@@ -192,8 +192,8 @@ class MainActivity : AppCompatActivity() {
         // TODO Error handling
     }
 
-    private fun onSuccess(downloadedFilePath: String) {
-        Log.d("downloadedFilePath=$downloadedFilePath")
+    private fun onSuccess(downloadedFileUri: String) {
+        Log.d("downloadedFileUri=$downloadedFileUri")
     }
 
     override fun onResume() {
