@@ -49,7 +49,7 @@ import org.jraf.android.util.log.Log
 import org.jraf.android.util.log.LogUtil
 import java.io.File
 
-private const val VIDEO_URL = "https://www.dropbox.com/s/7q5cj6omvsu5dhp/fire3.mp4"
+private const val VIDEO_URL = "https://www.dropbox.com/s/7q5cj6omvsu5dhp/fire3.mp4?dl=1"
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mBinding: MainBinding
@@ -178,8 +178,8 @@ class MainActivity : AppCompatActivity() {
                 DownloadManager.STATUS_FAILED -> onFail(fileName)
 
                 DownloadManager.STATUS_SUCCESSFUL -> {
-                    val downloadedFilePath = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME))
-                    onSuccess(downloadedFilePath)
+                    val downloadedFileUri = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
+                    onSuccess(downloadedFileUri)
                 }
             }
         } finally {
