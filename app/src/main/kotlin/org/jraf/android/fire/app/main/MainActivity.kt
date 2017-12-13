@@ -22,8 +22,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+@file:Suppress("DEPRECATION")
+
 package org.jraf.android.fire.app.main
 
+import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -62,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private var mReceiverRegistered = false
     private var mIsResumed = false
 
+    @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -69,7 +73,7 @@ class MainActivity : AppCompatActivity() {
             window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         }
 
-        mBinding = DataBindingUtil.setContentView<MainBinding>(this, R.layout.main)
+        mBinding = DataBindingUtil.setContentView(this, R.layout.main)
 
         mBinding.root.systemUiVisibility = (View.SYSTEM_UI_FLAG_LOW_PROFILE
                 or View.SYSTEM_UI_FLAG_FULLSCREEN
@@ -97,12 +101,10 @@ class MainActivity : AppCompatActivity() {
         // First check if a download is already ongoing
         val query = DownloadManager.Query().setFilterByStatus(DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PENDING or DownloadManager.STATUS_PAUSED)
         val cursor = mDownloadManager.query(query)
-        val downloadOngoing: Boolean
-        try {
-            downloadOngoing = cursor.count > 0
-        } finally {
-            cursor.close()
-        }
+        val downloadOngoing =
+                cursor.use {
+                    it.count > 0
+                }
         if (!downloadOngoing) {
             val uri = Uri.parse(VIDEO_URL)
             val request = DownloadManager.Request(uri)
@@ -147,6 +149,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("StaticFieldLeak")
     private val mDownloadBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (DownloadManager.ACTION_DOWNLOAD_COMPLETE == intent.action) {
@@ -250,7 +253,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val mOnVideoSizeChangedListener = MediaPlayer.OnVideoSizeChangedListener { mp, videoWidth, videoHeight ->
+    private val mOnVideoSizeChangedListener = MediaPlayer.OnVideoSizeChangedListener { _, videoWidth, videoHeight ->
         Log.d("videoWidth=$videoWidth videoHeight=$videoHeight")
         mVideoWidth = videoWidth
         mVideoHeight = videoHeight

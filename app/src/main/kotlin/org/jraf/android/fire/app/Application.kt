@@ -24,6 +24,7 @@
  */
 package org.jraf.android.fire.app
 
+import org.jraf.android.fire.BuildConfig
 import org.jraf.android.util.log.Log
 
 class Application : android.app.Application() {
@@ -34,6 +35,6 @@ class Application : android.app.Application() {
     override fun onCreate() {
         super.onCreate()
 
-        Log.init(this, LOG_TAG)
+        Log.init(this, LOG_TAG, BuildConfig.DEBUG_LOGS)
     }
 }
