@@ -1,64 +1,25 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
-if (buildProperties.enableFabric.toBoolean()) apply plugin: 'io.fabric'
-apply plugin: 'com.getkeepsafe.dexcount'
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
 
 android {
-    compileSdkVersion versions.compileSdk
-    buildToolsVersion versions.buildTools
+    compileSdk 31
 
     defaultConfig {
-        applicationId 'org.jraf.android.fire'
-        minSdkVersion 14
-        targetSdkVersion versions.targetSdk
-        versionCode buildNumber
-        versionName buildProperties.versionName
+        applicationId "org.jraf.android.fire"
+        minSdk 21
+        targetSdk 31
+        versionCode 1
+        versionName "1.0"
 
-        testInstrumentationRunner 'android.support.test.runner.AndroidJUnitRunner'
-
-        buildConfigField 'String', 'GIT_SHA1', "\"${gitSha1}\""
-        buildConfigField 'String', 'BUILD_DATE', "\"${buildDate}\""
-        // For now we enable strict mode for all the configs
-        buildConfigField 'boolean', 'STRICT_MODE', 'true'
-        // For now we enable debug logs all the configs
-        buildConfigField 'boolean', 'DEBUG_LOGS', 'true'
-
-        resConfigs 'en', 'fr'
-
-        // Useful for api keys in the manifest (Maps, Crashlytics, ...)
-        manifestPlaceholders = buildProperties
-
-        // Setting this to false enables the png generation at buildtime
-        // (see http://android-developers.blogspot.fr/2016/02/android-support-library-232.html)
-        vectorDrawables.useSupportLibrary = false
-    }
-
-    signingConfigs {
-        release {
-            storeFile file(buildProperties.signingStoreFile)
-            storePassword buildProperties.signingStorePassword
-            keyAlias buildProperties.signingKeyAlias
-            keyPassword buildProperties.signingKeyPassword
-        }
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
-        debug {
-            buildConfigField 'String', 'GIT_SHA1', "\"dev\""
-            buildConfigField 'String', 'BUILD_DATE', "\"dev\""
-            buildConfigField 'boolean', 'CRASH_REPORT', 'false'
-        }
-
         release {
-            buildConfigField 'String', 'GIT_SHA1', "\"${gitSha1}\""
-            buildConfigField 'String', 'BUILD_DATE', "\"${buildDate}\""
-            buildConfigField 'boolean', 'CRASH_REPORT', 'true'
-
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            shrinkResources true
-            signingConfig signingConfigs.release
         }
     }
 
@@ -66,68 +27,21 @@ android {
         enabled = true
     }
 
-    lintOptions {
-        abortOnError true
-        textReport true
-        ignoreWarnings true
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
-
-    sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
-    }
-}
-
-android.applicationVariants.all { variant ->
-    // Create new copy tasks, for release builds
-    if (variant.buildType.name == 'release') {
-        variant.outputs.each { output ->
-            def outputFile = file("build/outputs/apk/${variant.flavorName}/release/$output.outputFileName")
-            def apkName = "${globalProjectName}-${project.name}-${android.defaultConfig.versionCode}-${variant.flavorName}-signed.apk"
-
-            // Copy the apk to the 'etc' folder
-            def copyApkToEtc = tasks.create("copy${variant.name.capitalize()}ApkToEtc", Copy)
-            copyApkToEtc.from(outputFile)
-            copyApkToEtc.into('../etc/apk')
-            copyApkToEtc.rename output.outputFileName, apkName
-
-            // Copy the apk to the deploy folder
-            def copyApkToDeploy = tasks.create("copy${variant.name.capitalize()}ApkToDeploy", Copy)
-            copyApkToDeploy.from(outputFile)
-            copyApkToDeploy.into(buildProperties.deployFolder)
-            copyApkToDeploy.rename output.outputFileName, apkName
-
-            // Make the copy tasks run after the assemble tasks of the variant
-            variant.assemble.finalizedBy(copyApkToEtc, copyApkToDeploy)
-        }
+    kotlinOptions {
+        jvmTarget = '1.8'
     }
 }
 
 dependencies {
-    // Tests
-    androidTestImplementation("com.android.support.test.espresso:espresso-core:$versions.espresso", {
-        exclude group: 'com.android.support', module: 'support-annotations'
-    })
-    testImplementation "junit:junit:$versions.junit"
-    testImplementation "org.robolectric:robolectric:$versions.robolectric"
-    testImplementation "org.easytesting:fest-assert-core:$versions.fest"
 
-    // Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$versions.kotlin"
-
-    // Fabric / Crashlytics
-    implementation("com.crashlytics.sdk.android:crashlytics:$versions.crashlytics@aar") { transitive = true }
-
-    // JRAF
-    kapt "org.jraf:prefs-compiler:$versions.prefs"
-    implementation "org.jraf:prefs:$versions.prefs"
-    implementation 'com.github.BoD:jraf-android-util:-SNAPSHOT'
-//    implementation 'org.jraf:jraf-android-util:1.0.0'
-
-    // Necessary to have Kotlin and dataBinding at the same time
-    kapt "com.android.databinding:compiler:$versions.androidGradlePlugin"  // <- Ici
-}
-
-// Necessary for Prefs to work (see https://kotlinlang.org/docs/reference/kapt.html)
-kapt {
-    correctErrorTypes = true
+    implementation 'androidx.core:core-ktx:1.7.0'
+    implementation 'androidx.appcompat:appcompat:1.3.0'
+    implementation 'com.google.android.material:material:1.4.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 }

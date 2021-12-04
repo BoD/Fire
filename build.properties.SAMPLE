@@ -1,8 +1,0 @@
-versionName=1.0.0
-signingStoreFile=/home/jsmith/devkeys/android_release_key.keystore
-signingStorePassword=changeme
-signingKeyAlias=android_release_key
-signingKeyPassword=changeme
-deployFolder=/home/deployed/public
-enableFabric=false
-apiKeyFabric=aaabbbcccddd000111222333444
